@@ -4,12 +4,26 @@ var mouse = new THREE.Vector2(), INTERSECTED;
 var _ = require('lodash');
 
 var cubes = {};
-var NEXT_COLOR = {
-  0x000000: '(1,0,0)',
-  0xff0000: '(0,1,0)',
-  0x00ff00: '(0,0,1)',
-  0x0000ff: '(1,1,1)',
-  0xffffff: '(0,0,0)'
+
+var COLORS = ['(255,0,0)', '(0,255,0)', '(0,0,255)', '(255,255,255)']
+var INDEX = 0;
+
+setInterval(function () {
+  _.each(cubes, function (cube) {
+    if (cube.nextColor != undefined) {
+      console.log(cube.nextColor.toString());
+      BroadcastCubeWithIdAndColor(cube.name, cube.nextColor);
+    }
+  })
+}, 1000);
+var NextColor = function (currentColor) {
+
+  // var r = Math.floor(Math.random() * 255);
+  // var g = Math.floor(Math.random() * 255);
+  // var b = Math.floor(Math.random() * 255);
+  // var result = '(' + [r, g, b].join(',') + ')';
+  INDEX = (INDEX + 1) % COLORS.length;
+  return COLORS[INDEX];
 };
 
 var AddCube = function (cube) {
@@ -27,7 +41,10 @@ var AddCube = function (cube) {
   cubeMesh.position.x = cube.position.x;
   cubeMesh.position.y = cube.position.y;
   cubeMesh.position.z = cube.position.z;
-  cubeMesh.material.color = cube.color;
+  //cubeMesh.material.color = cube.color;
+  console.log(cubeMesh.material.color.toString());
+  console.log(cube.color.toString());
+
   cubeMesh.name = cube.id;
 };
 
@@ -150,8 +167,10 @@ function onClick (event) {
   if (INTERSECTED) {
     var cubeId = INTERSECTED.name;
     var currentHex = INTERSECTED.material.color.getHex();
-    var nextColor = NEXT_COLOR[currentHex];
-    changeCubeColor(cubeId, nextColor);
+    var nextColor = NextColor(currentHex);
+    INTERSECTED.nextColor = nextColor;
+    INTERSECTED.material.color = new THREE.Color('rgb' + nextColor);
+    BroadcastCubeWithIdAndColor(cubeId, nextColor);
   }
 }
 
@@ -170,7 +189,6 @@ function render() {
       INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
       var color = INTERSECTED.material.emissive;
       INTERSECTED.material.emissive = color.offsetHSL(0, 0.3, 0.3);
-
     }
 
   } else {

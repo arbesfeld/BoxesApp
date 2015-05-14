@@ -1,71 +1,85 @@
 'use strict';
 
 var btSerial = new (require('bluetooth-serial-port')).BluetoothSerialPort();
+var _ = require('lodash');
 
 var processData = function (data) {
-  var id = data[0];
-  var blockId = data[1];
-  var type = data[2];
-  var position = data[3];
-  var color = data[4];
+  console.log("PROCESS DATA: " + data.toString());
 
-  position = position.trim();
-  position = position.slice(1, position.length-1);
-  position = position.split(',');
+  var mutableData = data;
+  var readChars = function (numChars) {
+    var res = mutableData.substr(0, numChars);
+    mutableData = mutableData.substring(numChars);
+    return res;
+  };
 
-  color = color.trim();
-  color = color.slice(1, color.length-1);
-  color = color.split(',');
-  console.log(color.toString());
-  if (type == CMD_LOCATION) {
+  var parseV3 = function (str) {
+    str = str.trim();
+    str = str.slice(1, str.length - 1);
+    str = str.split(',');
+
+    return _.map(str, function (val) {
+      return parseInt(val) || 0;
+    });
+  };
+
+  var type = readChars(1);
+  var blockId = parseInt(readChars(4));
+  readChars(1);
+
+  mutableData = mutableData.split(' ');
+  if (mutableData.length < 2) {
+    return;
+  }
+
+  var position = parseV3(mutableData[0]);
+  var color = parseV3(mutableData[1]);
+
+  var fixColor = function (c) {
+    var fin = ((c + 256) % 256) / 256.0;
+    return fin;
+  };
+
+  color = _.map(color, fixColor);
+
+  if (type == CMD_POSITION) {
     AddCube(new Cube({
       id: blockId,
       x: position[0], y: position[1], z: position[2],
-      r: color[0], g: color[1], b: color[2]
+      r: color[0] % 256, g: color[1] % 256, b: color[2]
     }));
   }
 };
 
 var parseBuffer = function (buffer) {
-  var startPos = buffer.indexOf(START_CHAR);
-  var endPos = buffer.indexOf(END_CHAR);
-
-  if (startPos == -1 || endPos == -1) {
-    return buffer;
-  }
-  if (startPos > endPos && startPos >= 1) {
-    return buffer.slice(startPos - 1);
+  var data = buffer.split(IN_DELIM);
+  if (data.length > 2) {
+    processData(data[1].trim());
+    return _.slice(data, 2).join(IN_DELIM);
   }
 
-  var data = buffer.slice(startPos + 2, endPos).trim();
-  data = data.split(' ');
-  processData(data);
-
-  return buffer.slice(endPos+1);
+  return buffer;
 };
 
 // %c %d %d %c (%d,%d,%d) (%d,%d,%d) %c %c
 var constructCommand = function (blockId, color) {
-  var id = Math.floor(Math.random() * NUM_MESSAGES-1) + 1;
-
-  var cmd = [START_CHAR, id, blockId, CMD_COLOR, '(0,0,0)', color, 'i', 'i', ''].join(" ");
-  var finalCmd = Array(BUFFER_SIZE - cmd.length).join("X");
-  cmd += finalCmd;
-  cmd += END_CHAR;
+  var id = GenerateUID();
+  var cmd = [OUT_DELIM, CMD_COLOR, id, PadUID(blockId), color, OUT_DELIM].join('');
+  console.log(cmd.toString());
   return cmd;
 };
 
-var changeCubeColor = function (blockId, color) {
+var BroadcastCubeWithIdAndColor = function (blockId, color) {
   var cmd = constructCommand(blockId, color);
   console.log(cmd);
   btSerial.write(new Buffer(cmd, 'utf-8'), function (err, bytesWritten) {
-    console.log(bytesWritten.toString());
     if (err) {
       console.log(err);
     }
   });
 };
 
+btSerial.close();
 btSerial.connect(BT_ADDRESS, 1, function () {
   console.log('connected');
 
@@ -79,8 +93,8 @@ btSerial.connect(BT_ADDRESS, 1, function () {
 });
 
 // var strings = [
-//   'S', ' 143 32 L (0,0,0) (20,20,20) ', 'i', ' i', ' XXX', 'EE', "\u003C\uFFFD\u007F",
-//   'S', ' 143 33 L (1,0,0) (100,0,0) ', 'i', ' i', ' XXX', 'E'
+//   '\r\nP', '312', '1', '0010', '(1,0', ',0)',  ' (1,0', ',0)', '\r\n', 'balsdbhadlsfgadsf',
+//   '\r\nP', '312', '1', '0011', '(0,0', ',0)',  ' (1,0', ',0)', '\r\n', 'balsdbhadlsfgadsf'
 // ];
 
 // var i = 0;
