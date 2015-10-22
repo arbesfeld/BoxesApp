@@ -11,11 +11,12 @@ var INDEX = 0;
 setInterval(function () {
   _.each(cubes, function (cube) {
     if (cube.nextColor != undefined) {
-      console.log(cube.nextColor.toString());
       BroadcastCubeWithIdAndColor(cube.name, cube.nextColor);
     }
   })
 }, 1000);
+
+
 var NextColor = function (currentColor) {
 
   // var r = Math.floor(Math.random() * 255);
@@ -42,8 +43,6 @@ var AddCube = function (cube) {
   cubeMesh.position.y = cube.position.y;
   cubeMesh.position.z = cube.position.z;
   //cubeMesh.material.color = cube.color;
-  console.log(cubeMesh.material.color.toString());
-  console.log(cube.color.toString());
 
   cubeMesh.name = cube.id;
 };
@@ -168,11 +167,33 @@ function onClick (event) {
     var cubeId = INTERSECTED.name;
     var currentHex = INTERSECTED.material.color.getHex();
     var nextColor = NextColor(currentHex);
-    INTERSECTED.nextColor = nextColor;
+
+    if (cubeId == "4000") {
+      INTERSECTED.nextColor = COLORS[INDEX+1];
+    } else {
+      INTERSECTED.nextColor = nextColor;
+    }
     INTERSECTED.material.color = new THREE.Color('rgb' + nextColor);
     BroadcastCubeWithIdAndColor(cubeId, nextColor);
   }
 }
+
+serialPort.on('data', function(data) {
+  var cubeA = [cubes["4000"]
+  , cubes["3000"]
+  , cubes["2000"]]
+  if (data < 0 || data > 9) {
+    return;
+  }
+  data --;
+  var index = Math.floor(data / 3);
+  var cube = cubeA[index];
+
+  if (cube) {
+     cube.nextColor = index == 0 ? COLORS[(data+1) % 3] : COLORS[data % 3];
+     cube.material.color = new THREE.Color('rgb' + COLORS[data %3]);
+  }
+});
 
 function render() {
   raycaster.setFromCamera( mouse, camera );

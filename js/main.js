@@ -2,6 +2,10 @@
 
 var btSerial = new (require('bluetooth-serial-port')).BluetoothSerialPort();
 var _ = require('lodash');
+var SerialPort = require("serialport").SerialPort
+var serialPort = new SerialPort("/dev/cu.usbserial", {
+  baudrate: 9600
+});
 
 var processData = function (data) {
   console.log("PROCESS DATA: " + data.toString());
@@ -64,6 +68,7 @@ var parseBuffer = function (buffer) {
 // %c %d %d %c (%d,%d,%d) (%d,%d,%d) %c %c
 var constructCommand = function (blockId, color) {
   var id = GenerateUID();
+
   var cmd = [OUT_DELIM, CMD_COLOR, id, PadUID(blockId), color, OUT_DELIM].join('');
   console.log(cmd.toString());
   return cmd;
@@ -71,7 +76,7 @@ var constructCommand = function (blockId, color) {
 
 var BroadcastCubeWithIdAndColor = function (blockId, color) {
   var cmd = constructCommand(blockId, color);
-  console.log(cmd);
+
   btSerial.write(new Buffer(cmd, 'utf-8'), function (err, bytesWritten) {
     if (err) {
       console.log(err);
@@ -80,18 +85,24 @@ var BroadcastCubeWithIdAndColor = function (blockId, color) {
 };
 
 btSerial.close();
-btSerial.connect(BT_ADDRESS, 1, function () {
-  console.log('connected');
 
-  var data = '';
-  btSerial.on('data', function (buffer) {
-    var stringBuffer = buffer.toString('utf-8');
-    data = parseBuffer(data + stringBuffer);
+var tryConnect = function () {
+  btSerial.connect(BT_ADDRESS, 1, function () {
+    console.log('connected');
+
+    var data = '';
+    btSerial.on('data', function (buffer) {
+      var stringBuffer = buffer.toString('utf-8');
+      data = parseBuffer(data + stringBuffer);
+    });
+  }, function () {
+      console.log('cannot connect');
+      btSerial.close();
+      setTimeout(tryConnect, 1000);
   });
-}, function () {
-    console.log('cannot connect');
-});
+};
 
+tryConnect();
 // var strings = [
 //   '\r\nP', '312', '1', '0010', '(1,0', ',0)',  ' (1,0', ',0)', '\r\n', 'balsdbhadlsfgadsf',
 //   '\r\nP', '312', '1', '0011', '(0,0', ',0)',  ' (1,0', ',0)', '\r\n', 'balsdbhadlsfgadsf'

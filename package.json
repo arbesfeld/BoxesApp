@@ -4,5 +4,13 @@
   "main": "index.html",
   "dependencies": {
     "lodash": "^3.7.0"
+  },
+  "window": {
+    "title": "6.115 Cubes",
+    "icon": "icon.png",
+    "toolbar": false,
+    "frame": true,
+    "width": 1200,
+    "height": 800
   }
 }
